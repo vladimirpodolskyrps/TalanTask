@@ -14,6 +14,7 @@ public class HackerNewsStoriesController : ControllerBase
         _hackerNewsService = hackerNewsService;
     }
 
+    [HttpGet]
     public async Task<IActionResult> GetTopStories([FromQuery] int count = 5)
     {
         if (count <= 0)

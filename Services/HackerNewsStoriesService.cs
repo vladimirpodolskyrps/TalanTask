@@ -1,27 +1,29 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using TalanTask.DTOs;
 using TalanTask.Models;
 using TalanTask.Services.Interfaces;
+using TalanTask.Settings;
 
 namespace TalanTask.Services;
 
 public class HackerNewsStoriesService : IHackerNewsStoriesService
 {
-    private const string BestStoriesUrl = "https://hacker-news.firebaseio.com/v0/beststories.json";
-    private const string StoryDetailUrl = "https://hacker-news.firebaseio.com/v0/item/{0}.json";
-
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _cache;
+    private readonly HackerNewsSettings _settings;
 
-    public HackerNewsStoriesService(HttpClient httpClient, IMemoryCache cache)
+    public HackerNewsStoriesService(HttpClient httpClient, IMemoryCache cache,
+        IOptions<HackerNewsSettings> settings)
     {
         _httpClient = httpClient;
         _cache = cache;
+        _settings = settings.Value;
     }
 
     public async Task<IEnumerable<HackerNewsStoryModel>> GetTopStoriesAsync(int count)
     {
-        var storyIds = await _httpClient.GetFromJsonAsync<List<int>>(BestStoriesUrl);
+        var storyIds = await _httpClient.GetFromJsonAsync<List<int>>($"{_settings.BaseUrl}/{_settings.Endpoints.BestStories}");
 
         if (storyIds is null)
         {
@@ -37,7 +39,7 @@ public class HackerNewsStoriesService : IHackerNewsStoriesService
 
     private async Task<HackerNewsStoryModel?> GetStoryAsync(int id)
     {
-        string cacheKey = $"story:{id}";
+        var cacheKey = $"story:{id}";
 
         if (_cache.TryGetValue(cacheKey, out HackerNewsStoryModel cachedStory))
         {
@@ -46,7 +48,8 @@ public class HackerNewsStoriesService : IHackerNewsStoriesService
 
         try
         {
-            var story = await _httpClient.GetFromJsonAsync<HackerNewsStory>(string.Format(StoryDetailUrl, id));
+            var story = await _httpClient.GetFromJsonAsync<HackerNewsStory>(
+                string.Format($"{_settings.BaseUrl}/{string.Format(_settings.Endpoints.StoryById, id)}", id));
 
             if (story is null)
             {
@@ -63,13 +66,12 @@ public class HackerNewsStoriesService : IHackerNewsStoriesService
                 CommentCount = story.Descendants
             };
 
-            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5)); // I would say it depends on some factors what is duration number should be
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
 
             return result;
         }
         catch (Exception)
         {
-            // Logging may be added here if needed
             return null;
         }
     }
