@@ -1,4 +1,5 @@
 ﻿namespace TalanTask.Models;
+
 public class HackerNewsStoryModel
 {
     public string Title { get; set; } = null!;
